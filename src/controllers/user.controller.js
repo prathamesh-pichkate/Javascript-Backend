@@ -89,82 +89,93 @@ const registerUser = asyncHandler(async (req, res) => {
     )
 });
 
-const loginUser = asyncHandler(async (req,res) => {
-    //get the data
-    const {email,username,password} = req.body
+const loginUser = asyncHandler(async (req, res) =>{
+    // req body -> data
+    // username or email
+    //find the user
+    //password check
+    //access and referesh token
+    //send cookie
 
-    if(!username || !email){
-        throw new ApiError(400,"Username or Email is required")
-    }
+    const {email, username, password} = req.body
+    console.log(email);
 
-    //verify username or email:
-    const user = await User.findOne({
-        $or: [ {username}, {email} ],
-        })
-
-    if(!user){ //user is the instance of the User.
-        throw new ApiError(404,"User not found")
-    }
-
-    //User is the object of mongoose which we are not going to use to check the password
-    // we will use the user which is verified upwords.
-    const isPasswordValid = await user.comparePassword(password)
-
-    if(!isPasswordValid){
-        throw new ApiError(401,"Invalid credentials")
+    if (!username && !email) {
+        throw new ApiError(400, "username or email is required")
     }
     
-    //generate the refresh and access token
-    const {refreshToken,accessToken} = await generateAccessAndRefreshToken(user._id)
+    // Here is an alternative of above code based on logic discussed in video:
+    // if (!(username || email)) {
+    //     throw new ApiError(400, "username or email is required")
+        
+    // }
 
-    const loggedInUser = User.findById(user._id)
-    .select("-password -refreshToken")
+    const user = await User.findOne({
+        $or: [{username}, {email}]
+    })
 
-
-    //cookie can't modified from the frontend
-    const options = {
-        httpOnly,
-        secure:true
+    if (!user) {
+        throw new ApiError(404, "User does not exist")
     }
 
+   const isPasswordValid = await user.isPasswordCorrect(password)
+
+   if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials")
+    }
+
+   const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
+
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+     
+    console.log("Refresh Token",refreshToken)
+    console.log("Access Token",accessToken)
+    console.log("User",user)
     return res
     .status(200)
-    .cookie("refreshToken",refreshToken,options)
-    .cookie("accessToken",accessToken,options)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(
         new ApiResponse(
-            200,
+            200, 
             {
-                user:loggedInUser,accessToken,refreshToken
+                user: loggedInUser, accessToken, refreshToken
             },
-            "Login Successful"
+            "User logged In Successfully"
         )
     )
+
 })
 
-const logoutUser = asyncHandler(async(req,res)=>{
+const logoutUser = asyncHandler(async(req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            refreshToken: undefined,
+            $unset: {
+                refreshToken: 1 // this removes the field from document
+            }
         },
         {
-            new:true,
+            new: true
         }
     )
 
     const options = {
-        httpOnly,
-        secure:true
+        httpOnly: true,
+        secure: true
     }
 
     return res
     .status(200)
-    .clearCookie("accessToken",options)
-    .clearCookie("refreshToken",options)
-    .json(new ApiResponse(200,{},"User logged Out"))
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged Out"))
 })
-
 
 
 export { 

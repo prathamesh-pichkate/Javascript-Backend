@@ -1,5 +1,6 @@
 import mongoose from "mongoose"
 import bcrypt from "bcrypt"
+import jwt from "jsonwebtoken"
 const userSchema = new mongoose.Schema({
     username:{
         type:String,
@@ -55,9 +56,10 @@ userSchema.pre("save",async function(next){
 
 
 //methods to check if the password types by the user while login is correct
-userSchema.methods.comparePassword = async function(candidatePassword){
-    return await bcrypt.compare(candidatePassword,this.password);
+userSchema.methods.isPasswordCorrect = async function(password){
+    return await bcrypt.compare(password, this.password)
 }
+
 
 //methods to generate the access token
 userSchema.methods.generateAccessToken = async function(){
