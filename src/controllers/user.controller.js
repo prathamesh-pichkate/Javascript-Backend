@@ -5,21 +5,28 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 
 
-const generateAccessAndRefreshToken = async(userId)=>{
+const generateAccessAndRefreshToken = async (userId) => {
     try {
-      const user = await User.findById(userId)
-      const accessToken = user.generateAccessToken()
-      const refreshToken = user.generateRefreshToken()
+        const user = await User.findById(userId);
+        const accessToken = await user.generateAccessToken();
+        const refreshToken = await user.generateRefreshToken();
 
-      //need to save the refreshtoken in mongoDB
-      user.refreshToken = refreshToken
-      await user.save({validateBeforeSave : false})
+        console.log("Generated Refresh Token:", refreshToken);
 
-      return {accessToken,refreshToken}
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        // Log the user object after saving to confirm refreshToken is saved
+        const updatedUser = await User.findById(userId);
+        console.log("Updated User with Refresh Token:", updatedUser);
+
+        return { accessToken, refreshToken };
     } catch (error) {
-        throw new ApiError(500,"Something when wrong while accesing the token!")
+        throw new ApiError(500, "Something went wrong while generating the tokens!");
     }
-}
+};
+
+
 
 const registerUser = asyncHandler(async (req, res) => {
     //Get the data from the user
@@ -130,8 +137,9 @@ const loginUser = asyncHandler(async (req, res) =>{
 
     const options = {
         httpOnly: true,
-        secure: true
-    }
+        secure: process.env.NODE_ENV === 'production' // Only secure in production
+    };
+    
      
     console.log("Refresh Token",refreshToken)
     console.log("Access Token",accessToken)
@@ -174,7 +182,7 @@ const logoutUser = asyncHandler(async(req, res) => {
     .status(200)
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
-    .json(new ApiResponse(200, {}, "User logged Out"))
+    .json(new ApiResponse(200, {}, "User logged out"));
 })
 
 
